@@ -24,13 +24,20 @@ function gdpr_export($string) {
 	$pn = $arr['pn'] ?? null;
 	$path = DRUPAL_ROOT.'/sites/default/files/tmp/';
 
+	delTree($path);
+	mkdir($path, 0777);
+
 	$types = array('incoming', 'outgoing');
 
 	foreach ($types as $type) {
-
 		$nodes = node_load_multiple(array(), array('type' => $type));
-		$nodes_email = $email ? array_filter($nodes, 'find_email') : array();
-		$nodes_pn = $pn ? array_filter($nodes, 'find_pn') : array();
+		$nodes_email = $email ? array_filter($nodes, function ($n) use ($email) {
+			return (trim($n->field_email_['und'][0]['email']) == $email);
+		}) : array();
+		$nodes_pn = $pn ? array_filter($nodes, function ($n) use ($pn) {
+			return (trim($n->field_p_number['und'][0]['value']) == $pn ||
+				((trim($n->field_p_number['und'][0]['value']) == substr($pn, 2)) && strlen($pn) == 13));
+		}) : array();
 
 		if ($email && $pn && (array_values($nodes_email) !== array_values($nodes_pn))) {
 			// The requested user could not be found or credentials point to different users.
@@ -58,13 +65,10 @@ function gdpr_export($string) {
 				if (is_array($values)) {
 					$info = field_info_instance('node', $key, $type);
 					$headers[] = $info['label'];
-					$rows[$nid][] = export_field_data($values, $key, $obj);
+					$rows[$nid][] = export_field_data($values, $key, $files);
 				}
 			}
 		}
-
-		$path = DRUPAL_ROOT.'/sites/default/files/tmp/'; 
-		mkdir($path, 0777);
 
 		$file = fopen($path.$id.'-'.$type.'.csv', 'w') or die('Problems');
 		fputcsv($file, $headers);
@@ -72,7 +76,6 @@ function gdpr_export($string) {
 			fputcsv($file, $row);
 		}
 		fclose($file);
-
 	}
 
 	$zip = new ZipArchive;
@@ -101,15 +104,13 @@ function gdpr_export($string) {
 }
 
 // Functions
-function find_email ($n) {
-	global $email;
-	return (trim($n->field_email_['und'][0]['email']) == $email);
-}
 
-function find_pn ($n) {
-	global $pn;
-	return (trim($n->field_p_number['und'][0]['value']) == $pn ||
-		((trim($n->field_p_number['und'][0]['value']) == substr($pn, 2)) && strlen($pn) == 13));
+function delTree($dir) {
+	$files = array_diff(scandir($dir), array('.','..'));
+	foreach ($files as $file) {
+		(is_dir("$dir/$file")) ? delTree("$dir/$file") : unlink("$dir/$file");
+	}
+	return rmdir($dir);
 }
 
 function join_list ($l, $attr) {
@@ -120,8 +121,7 @@ function join_list ($l, $attr) {
 	return substr($string, 0, -2);
 }
 
-function export_field_data ($f, $name) {
-	global $files;
+function export_field_data ($f, $name, &$files) {
 	if (is_array($f)) {
 		$f = $f['und'];
 		switch ($name) {
