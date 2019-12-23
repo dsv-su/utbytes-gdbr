@@ -15,6 +15,10 @@ function gdpr_export($string) {
 		//$email = $_GET['mail'];
 	}*/
 
+	if (empty($string)) {
+		exit;
+	}
+
 	parse_str($string, $arr);
 	$email = $arr['email'] ?? null;
 	$pn = $arr['pn'] ?? null;
@@ -94,71 +98,70 @@ function gdpr_export($string) {
 		http_response_code(500);
 		die();
 	}
+}
 
+// Functions
+function find_email ($n) {
+	global $email;
+	return (trim($n->field_email_['und'][0]['email']) == $email);
+}
 
-	// Functions
-	function find_email ($n) {
-		global $email;
-		return (trim($n->field_email_['und'][0]['email']) == $email);
+function find_pn ($n) {
+	global $pn;
+	return (trim($n->field_p_number['und'][0]['value']) == $pn ||
+		((trim($n->field_p_number['und'][0]['value']) == substr($pn, 2)) && strlen($pn) == 13));
+}
+
+function join_list ($l, $attr) {
+	$string = '';
+	foreach ($l as $i) {
+		$string .= $i[$attr].', ';
 	}
+	return substr($string, 0, -2);
+}
 
-	function find_pn ($n) {
-		global $pn;
-		return (trim($n->field_p_number['und'][0]['value']) == $pn ||
-			((trim($n->field_p_number['und'][0]['value']) == substr($pn, 2)) && strlen($pn) == 13));
-	}
+function export_field_data ($f, $name) {
+	global $files;
+	if (is_array($f)) {
+		$f = $f['und'];
+		switch ($name) {
+			case 'field_courses':
+			case 'field_period':
+			case 'field_control':
+			case 'field_control_out':
+				return join_list($f, 'value');
+				break;
 
-	function join_list ($l, $attr) {
-		$string = '';
-		foreach ($l as $i) {
-			$string .= $i[$attr].', ';
-		}
-		return substr($string, 0, -2);
-	}
+			case 'field_email_':
+			case 'field_partner_email':
+				return $f[0]['email'];
+				break;
 
-	function export_field_data ($f, $name) {
-		global $files;
-		if (is_array($f)) {
-			$f = $f['und'];
-			switch ($name) {
-				case 'field_courses':
-				case 'field_period':
-				case 'field_control':
-				case 'field_control_out':
-					return join_list($f, 'value');
-					break;
+			case 'field_universitytax':
+			case 'field_periodtax':
+				$term = taxonomy_term_load($f[0]['tid']);
+				return $term->name;
+				break;
 
-				case 'field_email_':
-				case 'field_partner_email':
-					return $f[0]['email'];
-					break;
+			case 'field_insurance_student_out_vali':
+				return $f[0]['value'].' - '.$f[0]['value2'].' ('.$f[0]['timezone'].')';
+				break;
 
-				case 'field_universitytax':
-				case 'field_periodtax':
-					$term = taxonomy_term_load($f[0]['tid']);
-					return $term->name;
-					break;
+			case 'field_files':
+			case 'field_file':
+			case 'field_foto':
+				foreach ($f as $file) {
+					$url = file_create_url($file['uri']);
+					$files[] = $url;
+				}
+				return join_list($f, 'filename');
+				break;
 
-				case 'field_insurance_student_out_vali':
-					return $f[0]['value'].' - '.$f[0]['value2'].' ('.$f[0]['timezone'].')';
-					break;
-
-				case 'field_files':
-				case 'field_file':
-				case 'field_foto':
-					foreach ($f as $file) {
-						$url = file_create_url($file['uri']);
-						$files[] = $url;
-					}
-					return join_list($f, 'filename');
-					break;
-
-				default:
-					if ($f[0]['value']) {
-						return $f[0]['value'];
-					}
-					break;
-			}
+			default:
+				if ($f[0]['value']) {
+					return $f[0]['value'];
+				}
+				break;
 		}
 	}
 }
