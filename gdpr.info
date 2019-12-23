@@ -1,0 +1,6 @@
+name = GDPR Export
+description = Exports data from Utbytes.
+package = Custom
+version = "7.x-0.9"
+core = "7.x"
+datestamp = "1577112764"
