@@ -34,6 +34,8 @@ function gdpr_export($string) {
 
 	$types = array('incoming', 'outgoing');
 
+	$allempty = true;
+
 	foreach ($types as $type) {
 		$nodes = node_load_multiple(array(), array('type' => $type));
 		$nodes_email = $email ? array_filter($nodes, function ($n) use ($email) {
@@ -55,6 +57,8 @@ function gdpr_export($string) {
 		if (empty($nodes)) {
 			continue;
 		}
+
+		$allempty = false;
 
 		$id = $email ?? $pn;
 
@@ -81,6 +85,11 @@ function gdpr_export($string) {
 			fputcsv($file, $row);
 		}
 		fclose($file);
+	}
+
+	if ($allempty) {
+		http_response_code(204);
+		exit;
 	}
 
 	$zip = new ZipArchive;
