@@ -16,6 +16,7 @@ function gdpr_export($string) {
 	}*/
 
 	if (empty($string)) {
+		http_response_code(400);
 		exit;
 	}
 
@@ -23,6 +24,10 @@ function gdpr_export($string) {
 	$email = $arr['email'] ?? null;
 	$pn = $arr['pn'] ?? null;
 	$path = DRUPAL_ROOT.'/sites/default/files/tmp/';
+
+	if (!$email && !$pn) {
+		http_response_code(204);
+	}
 
 	delTree($path);
 	mkdir($path, 0777);
@@ -41,8 +46,8 @@ function gdpr_export($string) {
 
 		if ($email && $pn && (array_values($nodes_email) !== array_values($nodes_pn))) {
 			// The requested user could not be found or credentials point to different users.
-			// http_response_code(400);
-			// die();
+			http_response_code(204);
+			die();
 		}
 
 		$nodes = $nodes_email + $nodes_pn;
