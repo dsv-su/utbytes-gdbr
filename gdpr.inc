@@ -1,20 +1,7 @@
 <?php
 
-function gdpr_export($string) {
-	/*
-	if (php_sapi_name() == 'cli') {
-		$opts = "o:p:e:";
-		$input = getopt($opts);
-		$op = $input['o'];
-		$pn = $input['p'];
-		$email = $input['e'];
-	} else {
-		//op: export = 1, delete = 2
-		//$op = $_GET['op'];
-		//$pn = $_GET['pn'];
-		//$email = $_GET['mail'];
-	}*/
-
+function gdpr_export($string)
+{
 	if (empty($string)) {
 		http_response_code(400);
 		exit;
@@ -23,12 +10,32 @@ function gdpr_export($string) {
 	parse_str($string, $arr);
 	$email = $arr['email'] ?? null;
 	$pn = $arr['pn'] ?? null;
-	$path = DRUPAL_ROOT.'/sites/default/files/tmp/';
+	$ticket = getallheaders()['Authorization'] ?? $arr['ticket'];
 
-	if (!$email && !$pn) {
+	if ((!$email && !$pn) || !$ticket) {
 		http_response_code(204);
 	}
 
+	$ch = curl_init();
+	$apiurl = 'https://toker-test.dsv.su.se/verify';
+
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
+	curl_setopt($ch, CURLOPT_POSTFIELDS, $ticket);
+	curl_setopt($ch, CURLOPT_URL, $apiurl);
+	$contents = curl_exec($ch);
+	$headers  = curl_getinfo($ch);
+	curl_close($ch);
+
+	// Check auth.
+	if ($headers['http_code'] !== 200 || !in_array('urn:mace:swami.se:gmai:dsv-user:gdpr', json_decode($contents)->entitlements)) {
+		// Throw unauthorized code.
+		http_response_code(401);
+		die();
+	}
+
+	$path = DRUPAL_ROOT . '/sites/default/files/tmp/';
 	delTree($path);
 	mkdir($path, 0777);
 
@@ -79,7 +86,7 @@ function gdpr_export($string) {
 			}
 		}
 
-		$file = fopen($path.$id.'-'.$type.'.csv', 'w') or die('Problems');
+		$file = fopen($path . $id . '-' . $type . '.csv', 'w') or die('Problems');
 		fputcsv($file, $headers);
 		foreach ($rows as $row) {
 			fputcsv($file, $row);
@@ -93,23 +100,23 @@ function gdpr_export($string) {
 	}
 
 	$zip = new ZipArchive;
-	if ($zip->open($path.$id.'.zip', ZipArchive::CREATE) === TRUE) {   
+	if ($zip->open($path . $id . '.zip', ZipArchive::CREATE) === TRUE) {
 		foreach ($types as $type) {
-			$file = $path.$id.'-'.$type.'.csv';
-			$new_filename = substr($file, strrpos($file,'/') + 1);
+			$file = $path . $id . '-' . $type . '.csv';
+			$new_filename = substr($file, strrpos($file, '/') + 1);
 			$zip->addFile($file, $new_filename);
 		}
 		foreach ($files as $file) {
 			$file = str_replace('utbytes/gdpr/', 'utbytes/', $file);
-			$new_filename = substr($file, strrpos($file,'/') + 1);
+			$new_filename = substr($file, strrpos($file, '/') + 1);
 			$current = file_get_contents($file);
 			if (!empty($current)) {
-				file_put_contents($path.'/'.$new_filename, $current);
+				file_put_contents($path . '/' . $new_filename, $current);
 			}
-			$zip->addFile($path.'/'.$new_filename, $new_filename);
+			$zip->addFile($path . '/' . $new_filename, $new_filename);
 		}
 		$zip->close();
-		readfile($path.$id.'.zip');
+		readfile($path . $id . '.zip');
 		http_response_code(200);
 	} else {
 		http_response_code(500);
@@ -119,23 +126,26 @@ function gdpr_export($string) {
 
 // Functions
 
-function delTree($dir) {
-	$files = array_diff(scandir($dir), array('.','..'));
+function delTree($dir)
+{
+	$files = array_diff(scandir($dir), array('.', '..'));
 	foreach ($files as $file) {
 		(is_dir("$dir/$file")) ? delTree("$dir/$file") : unlink("$dir/$file");
 	}
 	return rmdir($dir);
 }
 
-function join_list ($l, $attr) {
+function join_list($l, $attr)
+{
 	$string = '';
 	foreach ($l as $i) {
-		$string .= $i[$attr].', ';
+		$string .= $i[$attr] . ', ';
 	}
 	return substr($string, 0, -2);
 }
 
-function export_field_data ($f, $name, &$files) {
+function export_field_data($f, $name, &$files)
+{
 	if (is_array($f)) {
 		$f = $f['und'];
 		switch ($name) {
@@ -158,7 +168,7 @@ function export_field_data ($f, $name, &$files) {
 				break;
 
 			case 'field_insurance_student_out_vali':
-				return $f[0]['value'].' - '.$f[0]['value2'].' ('.$f[0]['timezone'].')';
+				return $f[0]['value'] . ' - ' . $f[0]['value2'] . ' (' . $f[0]['timezone'] . ')';
 				break;
 
 			case 'field_files':

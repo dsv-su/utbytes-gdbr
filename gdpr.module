@@ -3,16 +3,15 @@
 /**
  * Implements hook_menu().
  */
-function gdpr_menu() {
- 
+function gdpr_menu()
+{
 	$items['gdpr/export/%'] = array(
-	  'title' => 'Export',
-	  'page callback' => 'gdpr_export',
-	  'access callback' => true,
-	  'menu_name' => 'main-menu',
-	  'file' => 'gdpr.inc',
-	  'page arguments' => array(2)
+		'title' => 'Export',
+		'page callback' => 'gdpr_export',
+		'access callback' => true,
+		'menu_name' => 'main-menu',
+		'file' => 'gdpr.inc',
+		'page arguments' => array(2)
 	);
-   
 	return $items;
-  }
+}
