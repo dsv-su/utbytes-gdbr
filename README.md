@@ -1,4 +1,3 @@
-```
 ## Usage
 ```bash
 $webroot/gdpr/export/email=%username%&pn=%pn&ticket=%ticket%
